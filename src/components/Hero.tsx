@@ -29,9 +29,9 @@ export default function Hero() {
 
         {/* Headline */}
         <h1 className="fade-in-up fade-in-up-2 text-5xl md:text-7xl lg:text-8xl font-extrabold leading-tight tracking-tight mb-6">
-          電話に出られない
+          電話に出られないを
           <br />
-          <span className="gradient-text">を、無くす。</span>
+          <span className="gradient-text">無くす</span>
         </h1>
 
         {/* Sub */}

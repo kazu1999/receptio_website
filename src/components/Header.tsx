@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { label: "課題", href: "#problem" },
   { label: "仕組み", href: "#how-it-works" },
   { label: "できること", href: "#capabilities" },
+  { label: "デモ", href: "#demo" },
   { label: "技術", href: "#tech-stack" },
 ];
 

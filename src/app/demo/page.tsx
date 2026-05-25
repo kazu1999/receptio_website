@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-type DemoPage = "calls" | "appointments";
+type DemoPage = "calls" | "appointments" | "faq" | "prompt";
 
 const MOCK_CALLS = [
   { id: "1", phone: "090-1234-5678", ts: "2025/05/25 14:32", approved: false, hasApt: true, summary: "松の剪定のお見積もりを希望。来週火曜日の午前中をご希望。西宮市甲子園口にお住まい。", apt: { name: "田中 太郎", date: "2025/05/27 10:00", content: "松の剪定 見積もり", address: "兵庫県西宮市甲子園口3丁目", phone: "090-1234-5678" } },
@@ -26,7 +26,8 @@ const NAV = [
   { key: "appointments" as const, icon: "📅", label: "アポイント" },
 ];
 const ADMIN_NAV = [
-  { icon: "❓", label: "FAQ" }, { icon: "📝", label: "プロンプト" },
+  { key: "faq" as const, icon: "❓", label: "FAQ" },
+  { key: "prompt" as const, icon: "📝", label: "プロンプト" },
 ];
 const SYS_NAV = [
   { icon: "☁️", label: "AWSコスト" }, { icon: "💻", label: "サーバー管理" },
@@ -178,6 +179,169 @@ function AptsView() {
   );
 }
 
+const MOCK_FAQS = [
+  { question: "料金はいくらですか？", answer: "剪定は1本あたり3,000円〜、草刈りは1㎡あたり500円〜となります。現地見積もりは無料です。" },
+  { question: "対応エリアはどこですか？", answer: "兵庫県の西宮市・芦屋市・宝塚市・尼崎市・伊丹市を中心に対応しております。その他のエリアもお気軽にご相談ください。" },
+  { question: "当日の作業は可能ですか？", answer: "スケジュールに空きがあれば当日対応も可能です。まずはお電話でご確認ください。" },
+  { question: "支払い方法は？", answer: "現金、銀行振込に対応しております。作業完了後のお支払いとなります。" },
+];
+
+const MOCK_PROMPT = `# 植木屋 Ueki AI電話受付プロンプト
+
+あなたは植木屋「Ueki」の電話受付AIアシスタントです。
+
+## 基本方針
+- 丁寧で温かみのある関西弁混じりの標準語で対応
+- お客様の要望を正確にヒアリング
+- アポイント予約まで完結させる
+
+## ヒアリング項目
+1. お客様のお名前
+2. ご希望の作業内容
+3. ご住所
+4. ご希望の訪問日時
+5. お電話番号（\{CALLER_PHONE\} で確認）
+
+## 受付可能時間
+\{SCHEDULE_START\}〜\{SCHEDULE_END\}
+
+## FAQ
+\{FAQ_KB\}
+
+## 注意事項
+- 今日の日付: \{TODAY\}
+- 同一時間帯の最大予約数: \{MAX_CONCURRENT\}件`;
+
+function FAQView() {
+  const [faqs, setFaqs] = useState(MOCK_FAQS);
+  const [newQ, setNewQ] = useState("");
+  const [newA, setNewA] = useState("");
+  const [editing, setEditing] = useState<string|null>(null);
+  const [editAnswer, setEditAnswer] = useState("");
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">FAQ 管理</h2>
+        <p className="mt-1 text-sm text-gray-600">クライアント: <span className="font-semibold text-indigo-600">ueki</span> のFAQを管理します</p>
+      </div>
+      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-100">
+        <h3 className="text-lg font-semibold mb-4">新規FAQ作成</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">質問</label>
+            <input type="text" value={newQ} onChange={e=>setNewQ(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例: 営業時間は何時から何時までですか？" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">回答</label>
+            <textarea value={newA} onChange={e=>setNewA(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例: 平日は9:00〜18:00です。" />
+          </div>
+          <button onClick={()=>{ if(newQ&&newA){setFaqs(prev=>[...prev,{question:newQ,answer:newA}]);setNewQ("");setNewA("");} }} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">作成</button>
+        </div>
+      </div>
+      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-100">
+        <h3 className="text-lg font-semibold mb-4">FAQ 一覧（{faqs.length}件）</h3>
+        <div className="space-y-4">
+          {faqs.map((faq,i)=>(
+            <div key={i} className="border rounded-lg p-4">
+              {editing===faq.question ? (
+                <div className="space-y-4">
+                  <div><label className="block text-sm font-medium text-gray-700 mb-2">質問（編集不可）</label><div className="text-gray-900 font-medium">{faq.question}</div></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-2">回答</label><textarea value={editAnswer} onChange={e=>setEditAnswer(e.target.value)} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>{setFaqs(prev=>prev.map(f=>f.question===faq.question?{...f,answer:editAnswer}:f));setEditing(null)}} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">保存</button>
+                    <button onClick={()=>setEditing(null)} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">キャンセル</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-gray-900">{faq.question}</div>
+                    <div className="flex gap-2">
+                      <button onClick={()=>{setEditing(faq.question);setEditAnswer(faq.answer)}} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">編集</button>
+                      <button onClick={()=>setFaqs(prev=>prev.filter(f=>f.question!==faq.question))} className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">削除</button>
+                    </div>
+                  </div>
+                  <div className="text-gray-700 whitespace-pre-wrap">{faq.answer}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PromptView() {
+  const [content, setContent] = useState(MOCK_PROMPT);
+  const [saved, setSaved] = useState(MOCK_PROMPT);
+  const [preview, setPreview] = useState(false);
+  const hasChanges = content !== saved;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">システムプロンプト</h2>
+          <p className="mt-1 text-sm text-gray-600">クライアント: <span className="font-semibold text-indigo-600">ueki</span> のプロンプトを編集します（Markdown対応）</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>setPreview(!preview)} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">{preview?"編集モード":"プレビュー"}</button>
+          <button onClick={()=>{setSaved(content)}} disabled={!hasChanges} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">{hasChanges?"保存 *":"保存"}</button>
+        </div>
+      </div>
+      <div className="bg-white shadow-sm rounded-lg p-8 border border-gray-100">
+        {preview ? (
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 min-h-[500px] prose prose-sm max-w-none">
+            {content.split("\n").map((line,i)=>{
+              if(line.startsWith("# ")) return <h1 key={i} className="text-2xl font-bold text-gray-900 mt-6 mb-3 pb-2 border-b-2 border-gray-300">{line.slice(2)}</h1>;
+              if(line.startsWith("## ")) return <h2 key={i} className="text-xl font-bold text-gray-800 mt-5 mb-2 pb-1 border-b border-gray-200">{line.slice(3)}</h2>;
+              if(line.startsWith("- ")) return <li key={i} className="text-gray-700 ml-4 list-disc">{line.slice(2)}</li>;
+              if(line.match(/^\d+\. /)) return <li key={i} className="text-gray-700 ml-4 list-decimal">{line.replace(/^\d+\. /,"")}</li>;
+              if(line.trim()==="") return <br key={i}/>;
+              return <p key={i} className="text-gray-700 leading-relaxed mb-2">{line}</p>;
+            })}
+          </div>
+        ) : (
+          <textarea value={content} onChange={e=>setContent(e.target.value)} rows={22} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm" />
+        )}
+        <div className="mt-4 text-sm text-gray-500">
+          <div>文字数: {content.length}</div>
+          {hasChanges && <div className="text-yellow-600 font-medium">未保存の変更があります</div>}
+        </div>
+      </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 mb-2">💡 ヒント</h3>
+        <ul className="text-sm text-blue-800 space-y-1">
+          <li>• プロンプトは Markdown 形式で記述できます</li>
+          <li>• 保存すると即座に AI の動作に反映されます（再デプロイ不要）</li>
+          <li>• 変更前にバックアップを取ることをお勧めします</li>
+        </ul>
+      </div>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <h3 className="font-semibold text-amber-900 mb-3">🔧 使えるプレースホルダー</h3>
+        <p className="text-xs text-amber-700 mb-3">プロンプト内に以下のキーワードを書くと、通話時に自動で値に置き換わります。</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[
+            { code: "{CALLER_PHONE}", desc: "発信者の電話番号" },
+            { code: "{TODAY}", desc: "今日の日付（JST・曜日付き）" },
+            { code: "{FAQ_KB}", desc: "FAQ データベース" },
+            { code: "{SCHEDULE_START}", desc: "アポ受付開始時刻" },
+            { code: "{SCHEDULE_END}", desc: "アポ受付終了時刻" },
+            { code: "{MAX_CONCURRENT}", desc: "同時刻の最大重複数" },
+          ].map(p=>(
+            <div key={p.code} className="flex items-center gap-2 bg-white rounded p-2 border border-amber-200">
+              <code className="text-amber-800 font-mono text-xs bg-amber-100 px-1.5 py-0.5 rounded whitespace-nowrap">{p.code}</code>
+              <span className="text-xs text-amber-800">{p.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DemoPage() {
   const [page, setPage] = useState<DemoPage>("calls");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -213,7 +377,11 @@ export default function DemoPage() {
             </div>
             <div className="space-y-1">
               <div className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">管理者</div>
-              {ADMIN_NAV.map(n=><div key={n.label} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400"><span className="text-base opacity-50">{n.icon}</span><span>{n.label}</span></div>)}
+              {ADMIN_NAV.map(n=>(
+                <button key={n.key} onClick={()=>setPage(n.key)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${page===n.key?"bg-blue-50 text-blue-700 shadow-sm border border-blue-100":"text-slate-600 hover:bg-slate-100 border border-transparent"}`}>
+                  <span className="text-base">{n.icon}</span><span>{n.label}</span>{page===n.key&&<span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                </button>
+              ))}
             </div>
             <div className="space-y-1">
               <div className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">システム管理</div>
@@ -241,7 +409,7 @@ export default function DemoPage() {
       {mobileOpen&&(
         <div className="lg:hidden fixed inset-0 z-50"><div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={()=>setMobileOpen(false)}/>
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl p-4 space-y-2">
-            {NAV.map(n=><button key={n.key} onClick={()=>{setPage(n.key);setMobileOpen(false)}} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ${page===n.key?"bg-blue-50 text-blue-700":"text-slate-600"}`}><span>{n.icon}</span><span>{n.label}</span></button>)}
+            {[...NAV,...ADMIN_NAV].map(n=><button key={n.key} onClick={()=>{setPage(n.key);setMobileOpen(false)}} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ${page===n.key?"bg-blue-50 text-blue-700":"text-slate-600"}`}><span>{n.icon}</span><span>{n.label}</span></button>)}
             <Link href="/" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-blue-50" onClick={()=>setMobileOpen(false)}>← LPに戻る</Link>
           </aside>
         </div>
@@ -258,7 +426,7 @@ export default function DemoPage() {
             </div>
             <Link href="/" className="text-xs text-indigo-600 font-semibold hover:underline whitespace-nowrap">← LPに戻る</Link>
           </div>
-          {page==="calls"?<CallsView/>:<AptsView/>}
+          {page==="calls"?<CallsView/>:page==="appointments"?<AptsView/>:page==="faq"?<FAQView/>:<PromptView/>}
         </div>
       </main>
     </div>
